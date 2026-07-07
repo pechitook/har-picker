@@ -245,7 +245,7 @@ export const useHarStore = defineStore('har', () => {
   });
 
   const compressedObject = computed(() => {
-    if (!har.value) return [];
+    if (!har.value) return null;
     return compressHarObject(
       har.value,
       configs.value,

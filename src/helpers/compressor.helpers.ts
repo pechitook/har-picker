@@ -34,7 +34,7 @@ function stripUrl(url: string, removeQs: boolean): string {
   return idx === -1 ? url : url.slice(0, idx);
 }
 
-function compressEntry(
+function buildHarEntry(
   entry: HarEntry,
   cfg: EntryConfig,
   global: GlobalStripConfig
@@ -44,39 +44,95 @@ function compressEntry(
   const out: Record<string, unknown> = {};
   const f = cfg.fields;
 
-  if (f.url) out.url = stripUrl(entry.request.url, global.removeQueryStrings);
-  if (f.method) out.method = entry.request.method;
-  if (f.status) out.status = entry.response.status;
-
-  if (f.requestHeaders) {
-    out.requestHeaders = pickHeaders(entry.request.headers, global);
+  // Always-on metadata: traceability fields the LLM needs for timeline analysis.
+  out.startedDateTime = entry.startedDateTime;
+  out.time = entry.time;
+  if (entry.pageref) out.pageref = entry.pageref;
+  if (entry.serverIPAddress) out.serverIPAddress = entry.serverIPAddress;
+  if (entry.connection) out.connection = entry.connection;
+  if (entry._resourceType) out._resourceType = entry._resourceType;
+  if (entry.cache && Object.keys(entry.cache).length > 0) {
+    out.cache = entry.cache;
   }
 
+  // Request object — toggles map to HAR paths.
+  const request: Record<string, unknown> = {};
+  if (f.url) request.url = stripUrl(entry.request.url, global.removeQueryStrings);
+  if (f.method) request.method = entry.request.method;
+  if (entry.request.httpVersion) request.httpVersion = entry.request.httpVersion;
+  if (f.requestHeaders) {
+    request.headers = pickHeaders(entry.request.headers, global);
+  }
+  if (!global.removeQueryStrings && entry.request.queryString.length > 0) {
+    request.queryString = entry.request.queryString;
+  }
   if (f.requestCookies) {
     const c = pickCookies(entry.request.cookies, global);
-    if (c !== undefined) out.requestCookies = c;
+    if (c !== undefined) request.cookies = c;
   }
-
-  if (f.requestBody && entry.request.postData?.text) {
-    out.requestBody = entry.request.postData.text;
+  if (f.requestBody && entry.request.postData) {
+    request.postData = entry.request.postData;
   }
+  if (entry.request.headersSize > 0) request.headersSize = entry.request.headersSize;
+  if (entry.request.bodySize > 0) request.bodySize = entry.request.bodySize;
+  if (Object.keys(request).length > 0) out.request = request;
 
+  // Response object.
+  const response: Record<string, unknown> = {};
+  if (f.status) {
+    response.status = entry.response.status;
+    if (entry.response.statusText) response.statusText = entry.response.statusText;
+  }
+  if (entry.response.httpVersion) response.httpVersion = entry.response.httpVersion;
   if (f.responseHeaders) {
-    out.responseHeaders = pickHeaders(entry.response.headers, global);
+    response.headers = pickHeaders(entry.response.headers, global);
   }
-
   if (f.responseCookies) {
     const c = pickCookies(entry.response.cookies, global);
-    if (c !== undefined) out.responseCookies = c;
+    if (c !== undefined) response.cookies = c;
   }
-
   if (f.responseBody) {
-    out.responseBody = truncate(entry.response.content.text, global.truncateBodyChars);
+    response.content = {
+      ...entry.response.content,
+      text: truncate(entry.response.content.text, global.truncateBodyChars),
+    };
+  }
+  if (entry.response.redirectURL) response.redirectURL = entry.response.redirectURL;
+  if (entry.response.headersSize > 0) response.headersSize = entry.response.headersSize;
+  if (entry.response.bodySize > 0) response.bodySize = entry.response.bodySize;
+  if (Object.keys(response).length > 0) out.response = response;
+
+  // Timings (user-selected — can be heavy if verbose).
+  if (f.timing) out.timings = entry.timings;
+
+  return out;
+}
+
+function buildHarLog(
+  har: Har,
+  configs: Map<number, EntryConfig>,
+  global: GlobalStripConfig,
+  allowedIndices?: Set<number>
+): Record<string, unknown> {
+  const entries: unknown[] = [];
+
+  for (let i = 0; i < har.log.entries.length; i++) {
+    if (allowedIndices && !allowedIndices.has(i)) continue;
+    const cfg = configs.get(i);
+    if (!cfg) continue;
+    const built = buildHarEntry(har.log.entries[i]!, cfg, global);
+    if (built) entries.push(built);
   }
 
-  if (f.timing) out.timing = entry.timings;
+  const log: Record<string, unknown> = {
+    version: har.log.version,
+    creator: har.log.creator,
+    entries,
+  };
+  if (har.log.browser) log.browser = har.log.browser;
+  if (har.log.pages && har.log.pages.length > 0) log.pages = har.log.pages;
 
-  return Object.keys(out).length > 0 ? out : null;
+  return log;
 }
 
 export function compressHar(
@@ -85,17 +141,7 @@ export function compressHar(
   global: GlobalStripConfig,
   allowedIndices?: Set<number>
 ): string {
-  const result: unknown[] = [];
-
-  for (let i = 0; i < har.log.entries.length; i++) {
-    if (allowedIndices && !allowedIndices.has(i)) continue;
-    const cfg = configs.get(i);
-    if (!cfg) continue;
-    const compressed = compressEntry(har.log.entries[i]!, cfg, global);
-    if (compressed) result.push(compressed);
-  }
-
-  return JSON.stringify(result);
+  return JSON.stringify({ log: buildHarLog(har, configs, global, allowedIndices) });
 }
 
 export function compressHarObject(
@@ -103,14 +149,6 @@ export function compressHarObject(
   configs: Map<number, EntryConfig>,
   global: GlobalStripConfig,
   allowedIndices?: Set<number>
-): unknown[] {
-  const result: unknown[] = [];
-  for (let i = 0; i < har.log.entries.length; i++) {
-    if (allowedIndices && !allowedIndices.has(i)) continue;
-    const cfg = configs.get(i);
-    if (!cfg) continue;
-    const compressed = compressEntry(har.log.entries[i]!, cfg, global);
-    if (compressed) result.push(compressed);
-  }
-  return result;
+): Record<string, unknown> {
+  return { log: buildHarLog(har, configs, global, allowedIndices) };
 }
