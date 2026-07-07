@@ -178,17 +178,46 @@ export const useHarStore = defineStore('har', () => {
     return count;
   });
 
+  const REGEX_HINT = /[|^$*+?\\\[({]/;
+
+  const searchError = computed<string | null>(() => {
+    const raw = filterSearch.value.trim();
+    if (!raw) return null;
+    if (!REGEX_HINT.test(raw)) return null;
+    try {
+      new RegExp(raw, 'i');
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : 'Invalid regex';
+    }
+  });
+
+  const searchTester = computed<(url: string) => boolean>(() => {
+    const raw = filterSearch.value.trim();
+    if (!raw) return () => true;
+    if (REGEX_HINT.test(raw)) {
+      try {
+        const re = new RegExp(raw, 'i');
+        return (url: string) => re.test(url);
+      } catch {
+        // fall through to substring
+      }
+    }
+    const lower = raw.toLowerCase();
+    return (url: string) => url.toLowerCase().includes(lower);
+  });
+
   const filteredIndices = computed(() => {
     if (!har.value) return [];
     const ft = filterTypes.value;
-    const fs = filterSearch.value.toLowerCase().trim();
     const fr = filterStatusRange.value;
+    const tester = searchTester.value;
 
     return har.value.log.entries
       .map((e, i) => ({ entry: e, index: i, type: entryTypes.value[i] }))
       .filter(({ entry, type }) => {
         if (ft.size > 0 && type && !ft.has(type)) return false;
-        if (fs && !entry.request.url.toLowerCase().includes(fs)) return false;
+        if (!tester(entry.request.url)) return false;
         if (fr !== 'all') {
           const code = entry.response.status;
           const prefix = fr[0];
@@ -293,6 +322,7 @@ export const useHarStore = defineStore('har', () => {
     selectedCount,
     effectiveSelectedCount,
     filteredIndices,
+    searchError,
     compressedOutput,
     compressedObject,
     charCount,

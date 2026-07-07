@@ -66,7 +66,8 @@ function clearFilters(): void {
         <input
           type="search"
           class="input toolbar-search-input"
-          placeholder="Filter by URL…"
+          :class="{ 'is-invalid': store.searchError }"
+          placeholder="Filter URL — supports basic regex"
           :value="store.filterSearch"
           @input="store.setFilterSearch(($event.target as HTMLInputElement).value)"
         />
@@ -79,6 +80,15 @@ function clearFilters(): void {
       >
         Clear filters
       </button>
+    </div>
+
+    <div v-if="store.searchError" class="toolbar-search-error" role="alert">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span>Invalid regex: {{ store.searchError }} — falling back to substring match.</span>
     </div>
 
     <div class="toolbar-row toolbar-row-filters">
@@ -169,6 +179,23 @@ function clearFilters(): void {
 
 .toolbar-search-input {
   padding-left: 32px;
+}
+
+.toolbar-search-input.is-invalid {
+  border-color: var(--color-danger);
+}
+
+.toolbar-search-input.is-invalid:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 18%, transparent);
+}
+
+.toolbar-search-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--color-danger);
+  padding: 4px 0 0 4px;
 }
 
 .toolbar-clear {
