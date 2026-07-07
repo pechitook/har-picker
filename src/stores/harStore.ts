@@ -35,6 +35,28 @@ export const useHarStore = defineStore('har', () => {
   const error = ref<string | null>(null);
   const loading = ref(false);
 
+  const baselineStats = ref<{ chars: number; tokens: number } | null>(null);
+
+  function computeBaseline(target: Har): { chars: number; tokens: number } {
+    const allConfigs = new Map<number, EntryConfig>();
+    for (let i = 0; i < target.log.entries.length; i++) {
+      allConfigs.set(i, { selected: true, fields: { ...DEFAULT_FIELDS } });
+    }
+    const noStrip: GlobalStripConfig = {
+      stripCookieValues: false,
+      stripCookieNames: false,
+      headerMode: 'all',
+      headerWhitelist: new Set(),
+      removeQueryStrings: false,
+      truncateBodyChars: null,
+    };
+    const output = compressHar(target, allConfigs, noStrip);
+    return {
+      chars: output.length,
+      tokens: countTokensSync(output),
+    };
+  }
+
   function setHar(newHar: Har): void {
     har.value = newHar;
     error.value = null;
@@ -47,6 +69,7 @@ export const useHarStore = defineStore('har', () => {
       map.set(i, { selected: true, fields: { ...DEFAULT_FIELDS } });
     }
     configs.value = map;
+    baselineStats.value = computeBaseline(newHar);
   }
 
   function setEntrySelected(index: number, selected: boolean): void {
@@ -143,6 +166,7 @@ export const useHarStore = defineStore('har', () => {
     filterTypes.value = new Set();
     filterSearch.value = '';
     filterStatusRange.value = 'all';
+    baselineStats.value = null;
     error.value = null;
   }
 
@@ -233,6 +257,14 @@ export const useHarStore = defineStore('har', () => {
     return globalStrip.value.headerWhitelist.size;
   });
 
+  const savingsPercent = computed(() => {
+    const baseline = baselineStats.value?.chars ?? 0;
+    if (baseline === 0) return 0;
+    const saved = baseline - charCount.value;
+    if (saved <= 0) return 0;
+    return Math.round((saved / baseline) * 100);
+  });
+
   return {
     har,
     entryTypes,
@@ -268,5 +300,7 @@ export const useHarStore = defineStore('har', () => {
     kbCount,
     previewSample,
     selectedHeaderCount,
+    savingsPercent,
+    baselineStats,
   };
 });

@@ -1,11 +1,28 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useHarStore } from '../stores/harStore';
 import { formatBytes } from '../utils/format';
 
 const store = useHarStore();
 const copied = ref(false);
 let copyTimer: ReturnType<typeof setTimeout> | null = null;
+
+function deltaPercent(current: number, baseline: number): number {
+  if (baseline <= 0 || current >= baseline) return 0;
+  return Math.round(((baseline - current) / baseline) * 100);
+}
+
+const charsDelta = computed(() => {
+  const baseline = store.baselineStats?.chars ?? 0;
+  return deltaPercent(store.charCount, baseline);
+});
+
+const tokensDelta = computed(() => {
+  const baseline = store.baselineStats?.tokens ?? 0;
+  return deltaPercent(store.tokenCount, baseline);
+});
+
+const sizeDelta = computed(() => charsDelta.value);
 
 async function copyToClipboard(): Promise<void> {
   if (store.charCount === 0) return;
@@ -35,26 +52,58 @@ async function copyToClipboard(): Promise<void> {
 <template>
   <aside class="preview" v-if="store.har">
     <div class="preview-header">
-      <h3 class="preview-title">Output</h3>
-      <span class="preview-subtitle">Compact JSON for AI</span>
+      <div class="preview-titles">
+        <h3 class="preview-title">Output</h3>
+        <span class="preview-subtitle">Compact JSON for AI</span>
+      </div>
+      <div
+        v-if="store.savingsPercent > 0"
+        class="preview-savings"
+        :title="`Original (all selected, no stripping): ${formatBytes(store.baselineStats?.chars ?? 0)} · ${(store.baselineStats?.tokens ?? 0).toLocaleString('en-US')} tokens`"
+      >
+        <span class="preview-savings-pct">−{{ store.savingsPercent }}%</span>
+        <span class="preview-savings-label">SAVED</span>
+      </div>
     </div>
 
     <div class="stats">
       <div class="stat">
         <span class="stat-value">{{ store.effectiveSelectedCount.toLocaleString('en-US') }}</span>
         <span class="stat-label">Entries</span>
+        <span class="stat-compare">of {{ store.har.log.entries.length }}</span>
       </div>
       <div class="stat">
         <span class="stat-value">{{ store.charCount.toLocaleString('en-US') }}</span>
         <span class="stat-label">Chars</span>
+        <span class="stat-compare">
+          of {{ (store.baselineStats?.chars ?? 0).toLocaleString('en-US') }}
+        </span>
+        <span
+          v-if="charsDelta > 0"
+          class="stat-delta stat-delta-good"
+        >−{{ charsDelta }}%</span>
       </div>
       <div class="stat">
         <span class="stat-value">{{ store.tokenCount.toLocaleString('en-US') }}</span>
         <span class="stat-label">Tokens</span>
+        <span class="stat-compare">
+          of {{ (store.baselineStats?.tokens ?? 0).toLocaleString('en-US') }}
+        </span>
+        <span
+          v-if="tokensDelta > 0"
+          class="stat-delta stat-delta-good"
+        >−{{ tokensDelta }}%</span>
       </div>
       <div class="stat">
         <span class="stat-value">{{ formatBytes(store.charCount) }}</span>
         <span class="stat-label">Size</span>
+        <span class="stat-compare">
+          of {{ formatBytes(store.baselineStats?.chars ?? 0) }}
+        </span>
+        <span
+          v-if="sizeDelta > 0"
+          class="stat-delta stat-delta-good"
+        >−{{ sizeDelta }}%</span>
       </div>
     </div>
 
@@ -102,8 +151,44 @@ async function copyToClipboard(): Promise<void> {
 
 .preview-header {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.preview-titles {
+  display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+}
+
+.preview-savings {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+  padding: 4px 8px;
+  background: var(--color-success-soft);
+  border-radius: var(--radius-sm);
+  line-height: 1.1;
+  flex-shrink: 0;
+}
+
+.preview-savings-pct {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-success);
+  font-variant-numeric: tabular-nums;
+}
+
+.preview-savings-label {
+  font-size: 0.62rem;
+  color: var(--color-success);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  opacity: 0.85;
 }
 
 .preview-title {
@@ -149,6 +234,24 @@ async function copyToClipboard(): Promise<void> {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 500;
+}
+
+.stat-compare {
+  font-size: 0.68rem;
+  color: var(--color-text-soft);
+  font-variant-numeric: tabular-nums;
+  margin-top: 1px;
+}
+
+.stat-delta {
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0;
+}
+
+.stat-delta-good {
+  color: var(--color-success);
 }
 
 .preview-sample {
