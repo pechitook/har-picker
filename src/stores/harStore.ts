@@ -266,11 +266,6 @@ export const useHarStore = defineStore('har', () => {
 
   const kbCount = computed(() => compressedOutput.value.length / 1024);
 
-  const previewSample = computed(() => {
-    const out = compressedOutput.value;
-    return out.length > 500 ? out.slice(0, 500) + '…' : out;
-  });
-
   const effectiveSelectedCount = computed(() => {
     let n = 0;
     const allowed = filteredIndices.value;
@@ -328,7 +323,6 @@ export const useHarStore = defineStore('har', () => {
     charCount,
     tokenCount,
     kbCount,
-    previewSample,
     selectedHeaderCount,
     savingsPercent,
     baselineStats,

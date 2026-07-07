@@ -107,14 +107,6 @@ async function copyToClipboard(): Promise<void> {
       </div>
     </div>
 
-    <div class="preview-sample">
-      <div class="preview-sample-header">
-        <span>Sample</span>
-        <span class="preview-sample-info">first 500 chars</span>
-      </div>
-      <pre class="preview-code"><code>{{ store.previewSample || '(nothing selected — pick entries above)' }}</code></pre>
-    </div>
-
     <button
       class="btn btn-primary preview-copy"
       :class="{ 'is-copied': copied }"
@@ -252,65 +244,6 @@ async function copyToClipboard(): Promise<void> {
 
 .stat-delta-good {
   color: var(--color-success);
-}
-
-.preview-sample {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 0;
-  flex: 1;
-}
-
-.preview-sample-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.preview-sample-header > span:first-child {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.preview-sample-info {
-  font-size: 0.7rem;
-  color: var(--color-text-soft);
-}
-
-.preview-code {
-  flex: 1;
-  min-height: 120px;
-  max-height: 280px;
-  overflow: auto;
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 10px 12px;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  line-height: 1.5;
-  color: var(--color-text);
-  white-space: pre-wrap;
-  word-break: break-all;
-  margin: 0;
-}
-
-.preview-code::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.preview-code::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.preview-code::-webkit-scrollbar-thumb {
-  background: var(--color-border-strong);
-  border-radius: 4px;
 }
 
 .preview-copy {
