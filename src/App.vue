@@ -20,11 +20,11 @@ const store = useHarStore();
         </div>
       </div>
       <div class="app-header-right">
-        <div v-if="store.har" class="app-counter" :title="`${store.selectedCount} of ${store.har.log.entries.length} entries selected`">
-          <span class="app-counter-value">{{ store.selectedCount }}</span>
+        <div v-if="store.har" class="app-counter" :title="`${store.effectiveSelectedCount} of ${store.har.log.entries.length} in output (${store.selectedCount} checked)`">
+          <span class="app-counter-value">{{ store.effectiveSelectedCount }}</span>
           <span class="app-counter-sep">/</span>
           <span class="app-counter-total">{{ store.har.log.entries.length }}</span>
-          <span class="app-counter-label">selected</span>
+          <span class="app-counter-label">in output</span>
         </div>
         <button
           v-if="store.har"

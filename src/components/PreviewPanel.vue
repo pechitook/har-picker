@@ -41,7 +41,7 @@ async function copyToClipboard(): Promise<void> {
 
     <div class="stats">
       <div class="stat">
-        <span class="stat-value">{{ store.selectedCount.toLocaleString('en-US') }}</span>
+        <span class="stat-value">{{ store.effectiveSelectedCount.toLocaleString('en-US') }}</span>
         <span class="stat-label">Entries</span>
       </div>
       <div class="stat">
@@ -69,7 +69,7 @@ async function copyToClipboard(): Promise<void> {
     <button
       class="btn btn-primary preview-copy"
       :class="{ 'is-copied': copied }"
-      :disabled="store.selectedCount === 0"
+      :disabled="store.effectiveSelectedCount === 0"
       @click="copyToClipboard"
     >
       <svg v-if="copied" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

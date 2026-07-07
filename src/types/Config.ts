@@ -90,10 +90,10 @@ export interface GlobalStripConfig {
 export const DEFAULT_GLOBAL_STRIP: GlobalStripConfig = {
   stripCookieValues: false,
   stripCookieNames: false,
-  headerMode: 'all',
-  headerWhitelist: new Set(),
+  headerMode: 'whitelist',
+  headerWhitelist: new Set(ESSENTIAL_HEADERS),
   removeQueryStrings: false,
-  truncateBodyChars: null,
+  truncateBodyChars: 100,
 };
 
 export type FilterStatusRange = 'all' | '2xx' | '3xx' | '4xx' | '5xx';

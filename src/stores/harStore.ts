@@ -18,7 +18,7 @@ import { countTokensSync } from '../helpers/tokenizer.helpers';
 function freshDefaultStrip(): GlobalStripConfig {
   return {
     ...DEFAULT_GLOBAL_STRIP,
-    headerWhitelist: new Set<string>(),
+    headerWhitelist: new Set<string>(DEFAULT_GLOBAL_STRIP.headerWhitelist),
   };
 }
 
@@ -38,6 +38,7 @@ export const useHarStore = defineStore('har', () => {
   function setHar(newHar: Har): void {
     har.value = newHar;
     error.value = null;
+    globalStrip.value = freshDefaultStrip();
     entryTypes.value = newHar.log.entries.map(
       (e) => inferResourceType(e.response.content.mimeType, e.request.url)
     );
@@ -182,12 +183,22 @@ export const useHarStore = defineStore('har', () => {
 
   const compressedOutput = computed(() => {
     if (!har.value) return '';
-    return compressHar(har.value, configs.value, globalStrip.value);
+    return compressHar(
+      har.value,
+      configs.value,
+      globalStrip.value,
+      new Set(filteredIndices.value)
+    );
   });
 
   const compressedObject = computed(() => {
     if (!har.value) return [];
-    return compressHarObject(har.value, configs.value, globalStrip.value);
+    return compressHarObject(
+      har.value,
+      configs.value,
+      globalStrip.value,
+      new Set(filteredIndices.value)
+    );
   });
 
   const charCount = computed(() => compressedOutput.value.length);
@@ -205,6 +216,16 @@ export const useHarStore = defineStore('har', () => {
   const previewSample = computed(() => {
     const out = compressedOutput.value;
     return out.length > 500 ? out.slice(0, 500) + '…' : out;
+  });
+
+  const effectiveSelectedCount = computed(() => {
+    let n = 0;
+    const allowed = filteredIndices.value;
+    for (const i of allowed) {
+      const c = configs.value.get(i);
+      if (c?.selected) n++;
+    }
+    return n;
   });
 
   const selectedHeaderCount = computed(() => {
@@ -238,6 +259,7 @@ export const useHarStore = defineStore('har', () => {
     setFilterStatusRange,
     clear,
     selectedCount,
+    effectiveSelectedCount,
     filteredIndices,
     compressedOutput,
     compressedObject,

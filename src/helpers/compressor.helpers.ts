@@ -82,11 +82,13 @@ function compressEntry(
 export function compressHar(
   har: Har,
   configs: Map<number, EntryConfig>,
-  global: GlobalStripConfig
+  global: GlobalStripConfig,
+  allowedIndices?: Set<number>
 ): string {
   const result: unknown[] = [];
 
   for (let i = 0; i < har.log.entries.length; i++) {
+    if (allowedIndices && !allowedIndices.has(i)) continue;
     const cfg = configs.get(i);
     if (!cfg) continue;
     const compressed = compressEntry(har.log.entries[i]!, cfg, global);
@@ -99,10 +101,12 @@ export function compressHar(
 export function compressHarObject(
   har: Har,
   configs: Map<number, EntryConfig>,
-  global: GlobalStripConfig
+  global: GlobalStripConfig,
+  allowedIndices?: Set<number>
 ): unknown[] {
   const result: unknown[] = [];
   for (let i = 0; i < har.log.entries.length; i++) {
+    if (allowedIndices && !allowedIndices.has(i)) continue;
     const cfg = configs.get(i);
     if (!cfg) continue;
     const compressed = compressEntry(har.log.entries[i]!, cfg, global);
