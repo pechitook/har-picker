@@ -129,7 +129,7 @@ function onToggleHeader(name: string): void {
       </section>
 
       <section class="strip-block">
-        <span class="strip-block-label">Body</span>
+        <span class="strip-block-label">Response body</span>
         <select
           class="input strip-select"
           :value="store.globalStrip.truncateBodyChars?.toString() ?? ''"
@@ -140,7 +140,7 @@ function onToggleHeader(name: string): void {
             :key="opt.value"
             :value="opt.value"
           >
-            Truncate: {{ opt.label }}
+            {{ opt.label }}
           </option>
         </select>
       </section>

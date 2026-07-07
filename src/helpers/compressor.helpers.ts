@@ -58,7 +58,7 @@ function compressEntry(
   }
 
   if (f.requestBody && entry.request.postData?.text) {
-    out.requestBody = truncate(entry.request.postData.text, global.truncateBodyChars);
+    out.requestBody = entry.request.postData.text;
   }
 
   if (f.responseHeaders) {
