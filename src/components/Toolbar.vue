@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { useHarStore } from '../stores/harStore';
 import type { ResourceType } from '../types/Har';
-import type { FilterStatusRange } from '../types/Config';
+import type { FilterStatusBucket, HttpMethod } from '../types/Config';
 
 const store = useHarStore();
 
@@ -17,18 +17,29 @@ const typePills: Array<{ type: ResourceType; label: string }> = [
   { type: 'other', label: 'Other' },
 ];
 
-const statusOptions: Array<{ value: FilterStatusRange; label: string }> = [
-  { value: 'all', label: 'All' },
-  { value: '2xx', label: '2xx' },
-  { value: '3xx', label: '3xx' },
-  { value: '4xx', label: '4xx' },
-  { value: '5xx', label: '5xx' },
+const methodPills: Array<{ method: HttpMethod; label: string }> = [
+  { method: 'GET', label: 'GET' },
+  { method: 'POST', label: 'POST' },
+  { method: 'PUT', label: 'PUT' },
+  { method: 'PATCH', label: 'PATCH' },
+  { method: 'DELETE', label: 'DELETE' },
+  { method: 'HEAD', label: 'HEAD' },
+  { method: 'OPTIONS', label: 'OPTIONS' },
+  { method: 'OTHER', label: 'Other' },
+];
+
+const statusPills: Array<{ bucket: FilterStatusBucket; label: string }> = [
+  { bucket: '2xx', label: '2xx' },
+  { bucket: '3xx', label: '3xx' },
+  { bucket: '4xx', label: '4xx' },
+  { bucket: '5xx', label: '5xx' },
 ];
 
 const hasActiveFilters = computed(() => {
   return (
     store.filterTypes.size > 0 ||
-    store.filterStatusRange !== 'all' ||
+    store.filterStatusBuckets.size > 0 ||
+    store.filterMethods.size > 0 ||
     store.filterSearch.trim().length > 0 ||
     store.hasTimeFilter
   );
@@ -44,10 +55,31 @@ function toggleType(type: ResourceType): void {
   store.setFilterTypes(next);
 }
 
+function toggleMethod(method: HttpMethod): void {
+  const next = new Set(store.filterMethods);
+  if (next.has(method)) {
+    next.delete(method);
+  } else {
+    next.add(method);
+  }
+  store.setFilterMethods(next);
+}
+
+function toggleStatus(bucket: FilterStatusBucket): void {
+  const next = new Set(store.filterStatusBuckets);
+  if (next.has(bucket)) {
+    next.delete(bucket);
+  } else {
+    next.add(bucket);
+  }
+  store.setFilterStatusBuckets(next);
+}
+
 function clearFilters(): void {
   store.setFilterTypes(new Set());
   store.setFilterSearch('');
-  store.setFilterStatusRange('all');
+  store.setFilterStatusBuckets(new Set());
+  store.setFilterMethods(new Set());
   store.clearTimeFilter();
 }
 </script>
@@ -95,6 +127,24 @@ function clearFilters(): void {
 
     <div class="toolbar-row toolbar-row-filters">
       <div class="toolbar-section">
+        <span class="toolbar-label">Method</span>
+        <div class="pill-group">
+          <button
+            v-for="pill in methodPills"
+            :key="pill.method"
+            class="pill"
+            :class="{ 'is-active': store.filterMethods.has(pill.method) }"
+            @click="toggleMethod(pill.method)"
+            :aria-pressed="store.filterMethods.has(pill.method)"
+          >
+            {{ pill.label }}
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar-divider" aria-hidden="true"></div>
+
+      <div class="toolbar-section">
         <span class="toolbar-label">Type</span>
         <div class="pill-group">
           <button
@@ -114,16 +164,16 @@ function clearFilters(): void {
 
       <div class="toolbar-section">
         <span class="toolbar-label">Status</span>
-        <div class="pill-group pill-group-status">
+        <div class="pill-group">
           <button
-            v-for="opt in statusOptions"
-            :key="opt.value"
-            class="pill pill-status"
-            :class="{ 'is-active': store.filterStatusRange === opt.value }"
-            @click="store.setFilterStatusRange(opt.value)"
-            :aria-pressed="store.filterStatusRange === opt.value"
+            v-for="pill in statusPills"
+            :key="pill.bucket"
+            class="pill"
+            :class="{ 'is-active': store.filterStatusBuckets.has(pill.bucket) }"
+            @click="toggleStatus(pill.bucket)"
+            :aria-pressed="store.filterStatusBuckets.has(pill.bucket)"
           >
-            {{ opt.label }}
+            {{ pill.label }}
           </button>
         </div>
       </div>

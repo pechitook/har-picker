@@ -5,11 +5,15 @@ import {
   type EntryConfig,
   type FieldKey,
   type GlobalStripConfig,
+  type FilterStatusBucket,
   type FilterStatusRange,
+  type HttpMethod,
   type HeaderStripMode,
   COMMON_HEADERS,
   DEFAULT_FIELDS,
   DEFAULT_GLOBAL_STRIP,
+  normalizeMethod,
+  statusToBucket,
 } from '../types/Config';
 import { compressHar, compressHarObject } from '../helpers/compressor.helpers';
 import { inferResourceType } from '../helpers/inferType.helpers';
@@ -36,7 +40,8 @@ export const useHarStore = defineStore('har', () => {
 
   const filterTypes = ref<Set<ResourceType>>(new Set());
   const filterSearch = ref('');
-  const filterStatusRange = ref<FilterStatusRange>('all');
+  const filterStatusBuckets = ref<Set<FilterStatusBucket>>(new Set());
+  const filterMethods = ref<Set<HttpMethod>>(new Set());
   const filterTimeRange = ref<TimeRange | null>(null);
 
   const error = ref<string | null>(null);
@@ -162,8 +167,21 @@ export const useHarStore = defineStore('har', () => {
     filterSearch.value = s;
   }
 
+  function setFilterStatusBuckets(buckets: Set<FilterStatusBucket>): void {
+    filterStatusBuckets.value = buckets;
+  }
+
+  function setFilterMethods(methods: Set<HttpMethod>): void {
+    filterMethods.value = methods;
+  }
+
+  /** @deprecated legacy single-value API — maps to Set */
   function setFilterStatusRange(r: FilterStatusRange): void {
-    filterStatusRange.value = r;
+    if (r === 'all') {
+      filterStatusBuckets.value = new Set();
+    } else {
+      filterStatusBuckets.value = new Set([r]);
+    }
   }
 
   function setTimeRange(range: TimeRange | null): void {
@@ -190,7 +208,8 @@ export const useHarStore = defineStore('har', () => {
     globalStrip.value = freshDefaultStrip();
     filterTypes.value = new Set();
     filterSearch.value = '';
-    filterStatusRange.value = 'all';
+    filterStatusBuckets.value = new Set();
+    filterMethods.value = new Set();
     filterTimeRange.value = null;
     baselineStats.value = null;
     error.value = null;
@@ -243,7 +262,8 @@ export const useHarStore = defineStore('har', () => {
   const filteredIndices = computed(() => {
     if (!har.value) return [];
     const ft = filterTypes.value;
-    const fr = filterStatusRange.value;
+    const fb = filterStatusBuckets.value;
+    const fm = filterMethods.value;
     const tr = filterTimeRange.value;
     const tester = searchTester.value;
 
@@ -252,16 +272,13 @@ export const useHarStore = defineStore('har', () => {
       .filter(({ entry, type }) => {
         if (ft.size > 0 && type && !ft.has(type)) return false;
         if (!tester(entry.request.url)) return false;
-        if (fr !== 'all') {
-          const code = entry.response.status;
-          const prefix = fr[0];
-          const ok =
-            prefix === '2' ? code >= 200 && code < 300 :
-            prefix === '3' ? code >= 300 && code < 400 :
-            prefix === '4' ? code >= 400 && code < 500 :
-            prefix === '5' ? code >= 500 && code < 600 :
-            true;
-          if (!ok) return false;
+        if (fb.size > 0) {
+          const bucket = statusToBucket(entry.response.status);
+          if (!bucket || !fb.has(bucket)) return false;
+        }
+        if (fm.size > 0) {
+          const m = normalizeMethod(entry.request.method);
+          if (!fm.has(m)) return false;
         }
         if (tr) {
           const t = Date.parse(entry.startedDateTime);
@@ -329,6 +346,14 @@ export const useHarStore = defineStore('har', () => {
     return Math.round((saved / baseline) * 100);
   });
 
+  // Legacy compat: single-value view derived from Set (for test hooks that still use `status=all|2xx`)
+  const filterStatusRange = computed<FilterStatusRange>(() => {
+    if (filterStatusBuckets.value.size === 0) return 'all';
+    if (filterStatusBuckets.value.size === 1) return [...filterStatusBuckets.value][0]! as FilterStatusRange;
+    // Multi-select has no single-value representation — return first for compat
+    return [...filterStatusBuckets.value][0]! as FilterStatusRange;
+  });
+
   return {
     har,
     entryTypes,
@@ -336,7 +361,9 @@ export const useHarStore = defineStore('har', () => {
     globalStrip,
     filterTypes,
     filterSearch,
+    filterStatusBuckets,
     filterStatusRange,
+    filterMethods,
     filterTimeRange,
     timelineBounds,
     hasTimeFilter,
@@ -355,6 +382,8 @@ export const useHarStore = defineStore('har', () => {
     applyHeaderPreset,
     setFilterTypes,
     setFilterSearch,
+    setFilterStatusBuckets,
+    setFilterMethods,
     setFilterStatusRange,
     setTimeRange,
     clearTimeFilter,

@@ -3,7 +3,7 @@ import { createPinia } from 'pinia';
 import App from './App.vue';
 import { useHarStore } from './stores/harStore';
 import type { ResourceType } from './types/Har';
-import type { FilterStatusRange } from './types/Config';
+import type { FilterStatusBucket, HttpMethod } from './types/Config';
 
 const app = createApp(App);
 app.use(createPinia());
@@ -24,6 +24,7 @@ window.__test = {
   demo: params.get('demo') ?? '',
   filter: params.get('filter') ?? '',
   status: params.get('status') ?? '',
+  method: params.get('method') ?? '',
   deselect: params.get('deselect') ?? '',
   truncate: params.get('truncate') ?? '',
   strip: params.get('strip') ?? '',
@@ -53,9 +54,20 @@ if (demo) {
           const types = filter.split(',') as ResourceType[];
           store.setFilterTypes(new Set(types));
         }
-        const status = params.get('status') as FilterStatusRange | null;
+        const status = params.get('status');
         if (status) {
-          store.setFilterStatusRange(status);
+          if (status.trim() === 'all') {
+            store.setFilterStatusBuckets(new Set());
+          } else {
+            const buckets = status.split(',').filter(Boolean) as FilterStatusBucket[];
+            const valid = buckets.filter((b) => ['2xx', '3xx', '4xx', '5xx'].includes(b));
+            if (valid.length > 0) store.setFilterStatusBuckets(new Set(valid));
+          }
+        }
+        const method = params.get('method');
+        if (method) {
+          const methods = method.split(',').map((m) => m.trim().toUpperCase()).filter(Boolean) as HttpMethod[];
+          store.setFilterMethods(new Set(methods));
         }
         const truncate = params.get('truncate');
         if (truncate) {
