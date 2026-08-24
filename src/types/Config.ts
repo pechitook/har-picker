@@ -96,10 +96,37 @@ export const DEFAULT_GLOBAL_STRIP: GlobalStripConfig = {
   truncateBodyChars: 100,
 };
 
-export type FilterStatusRange = 'all' | '2xx' | '3xx' | '4xx' | '5xx';
+export type FilterStatusBucket = '2xx' | '3xx' | '4xx' | '5xx';
+/** @deprecated use Set<FilterStatusBucket> — kept for URL backward compat */
+export type FilterStatusRange = 'all' | FilterStatusBucket;
+
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS' | 'OTHER';
+export const ALL_METHODS: readonly HttpMethod[] = [
+  'GET',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'HEAD',
+  'OPTIONS',
+] as const;
+
+export function normalizeMethod(raw: string): HttpMethod {
+  const upper = raw.toUpperCase();
+  return (ALL_METHODS as readonly string[]).includes(upper) ? (upper as HttpMethod) : 'OTHER';
+}
+
+export function statusToBucket(status: number): FilterStatusBucket | null {
+  if (status >= 200 && status < 300) return '2xx';
+  if (status >= 300 && status < 400) return '3xx';
+  if (status >= 400 && status < 500) return '4xx';
+  if (status >= 500 && status < 600) return '5xx';
+  return null;
+}
 
 export interface Filters {
   types: Set<ResourceType>;
   search: string;
-  statusRange: FilterStatusRange;
+  statusBuckets: Set<FilterStatusBucket>;
+  methods: Set<HttpMethod>;
 }
