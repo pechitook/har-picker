@@ -29,7 +29,8 @@ const hasActiveFilters = computed(() => {
   return (
     store.filterTypes.size > 0 ||
     store.filterStatusRange !== 'all' ||
-    store.filterSearch.trim().length > 0
+    store.filterSearch.trim().length > 0 ||
+    store.hasTimeFilter
   );
 });
 
@@ -47,6 +48,7 @@ function clearFilters(): void {
   store.setFilterTypes(new Set());
   store.setFilterSearch('');
   store.setFilterStatusRange('all');
+  store.clearTimeFilter();
 }
 </script>
 

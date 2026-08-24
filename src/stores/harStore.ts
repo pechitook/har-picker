@@ -14,6 +14,12 @@ import {
 import { compressHar, compressHarObject } from '../helpers/compressor.helpers';
 import { inferResourceType } from '../helpers/inferType.helpers';
 import { countTokensSync } from '../helpers/tokenizer.helpers';
+import {
+  computeTimelineBounds,
+  clampRange,
+  type TimelineBounds,
+  type TimeRange,
+} from '../helpers/timeline.helpers';
 
 function freshDefaultStrip(): GlobalStripConfig {
   return {
@@ -31,6 +37,7 @@ export const useHarStore = defineStore('har', () => {
   const filterTypes = ref<Set<ResourceType>>(new Set());
   const filterSearch = ref('');
   const filterStatusRange = ref<FilterStatusRange>('all');
+  const filterTimeRange = ref<TimeRange | null>(null);
 
   const error = ref<string | null>(null);
   const loading = ref(false);
@@ -61,6 +68,7 @@ export const useHarStore = defineStore('har', () => {
     har.value = newHar;
     error.value = null;
     globalStrip.value = freshDefaultStrip();
+    filterTimeRange.value = null;
     entryTypes.value = newHar.log.entries.map(
       (e) => inferResourceType(e.response.content.mimeType, e.request.url)
     );
@@ -158,6 +166,23 @@ export const useHarStore = defineStore('har', () => {
     filterStatusRange.value = r;
   }
 
+  function setTimeRange(range: TimeRange | null): void {
+    if (!range) {
+      filterTimeRange.value = null;
+      return;
+    }
+    const bounds = timelineBounds.value;
+    if (bounds) {
+      filterTimeRange.value = clampRange(range, bounds);
+    } else {
+      filterTimeRange.value = range;
+    }
+  }
+
+  function clearTimeFilter(): void {
+    filterTimeRange.value = null;
+  }
+
   function clear(): void {
     har.value = null;
     entryTypes.value = [];
@@ -166,6 +191,7 @@ export const useHarStore = defineStore('har', () => {
     filterTypes.value = new Set();
     filterSearch.value = '';
     filterStatusRange.value = 'all';
+    filterTimeRange.value = null;
     baselineStats.value = null;
     error.value = null;
   }
@@ -207,10 +233,18 @@ export const useHarStore = defineStore('har', () => {
     return (url: string) => url.toLowerCase().includes(lower);
   });
 
+  const timelineBounds = computed<TimelineBounds | null>(() => {
+    if (!har.value) return null;
+    return computeTimelineBounds(har.value);
+  });
+
+  const hasTimeFilter = computed(() => filterTimeRange.value !== null);
+
   const filteredIndices = computed(() => {
     if (!har.value) return [];
     const ft = filterTypes.value;
     const fr = filterStatusRange.value;
+    const tr = filterTimeRange.value;
     const tester = searchTester.value;
 
     return har.value.log.entries
@@ -228,6 +262,12 @@ export const useHarStore = defineStore('har', () => {
             prefix === '5' ? code >= 500 && code < 600 :
             true;
           if (!ok) return false;
+        }
+        if (tr) {
+          const t = Date.parse(entry.startedDateTime);
+          if (!Number.isNaN(t)) {
+            if (t < tr.startMs || t > tr.endMs) return false;
+          }
         }
         return true;
       })
@@ -297,6 +337,9 @@ export const useHarStore = defineStore('har', () => {
     filterTypes,
     filterSearch,
     filterStatusRange,
+    filterTimeRange,
+    timelineBounds,
+    hasTimeFilter,
     error,
     loading,
     setHar,
@@ -313,6 +356,8 @@ export const useHarStore = defineStore('har', () => {
     setFilterTypes,
     setFilterSearch,
     setFilterStatusRange,
+    setTimeRange,
+    clearTimeFilter,
     clear,
     selectedCount,
     effectiveSelectedCount,

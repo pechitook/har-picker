@@ -2,6 +2,7 @@
 import { useHarStore } from './stores/harStore';
 import PasteDropZone from './components/PasteDropZone.vue';
 import Toolbar from './components/Toolbar.vue';
+import TimelineFilter from './components/TimelineFilter.vue';
 import StrippingPanel from './components/StrippingPanel.vue';
 import EntryList from './components/EntryList.vue';
 import PreviewPanel from './components/PreviewPanel.vue';
@@ -41,6 +42,7 @@ const store = useHarStore();
 
       <template v-else>
         <Toolbar />
+        <TimelineFilter />
         <div class="app-content">
           <StrippingPanel class="app-stripping" />
           <section class="app-list">
